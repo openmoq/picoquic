@@ -2,11 +2,12 @@ name: ci pr
 
 # Minimal CI wrapper named `ci pr` so the omoq-auto-merge-sync workflow has
 # a stable workflow_run trigger name across openmoq forks (matches moxygen).
-# Mirrors picoquic upstream's CITests build invocation but adds:
+# Mirrors picoquic upstream's CITests + ci-tests-mac-os build invocation but
+# adds:
 #   - sync/** branch coverage (auto-merge depends on this)
 #   - PRs targeting `main` (our default) instead of upstream's `master`
 #
-# Picoquic's own ci-tests.yml continues to run independently.
+# Picoquic's own ci-tests.yml etc. continue to run independently.
 
 on:
   pull_request:
@@ -24,17 +25,30 @@ permissions:
 
 jobs:
   build:
-    name: ci-pr
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            name: linux
+          - runner: macos-15
+            name: macos
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
-      - name: Install system dependencies
+      - name: Install system dependencies (linux)
+        if: matrix.name == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev
+
+      - name: Install system dependencies (macos)
+        if: matrix.name == 'macos'
+        run: brew install openssl@3
 
       - name: Configure
         run: cmake -S . -B build -DPICOQUIC_FETCH_PTLS:BOOL=ON
@@ -44,7 +58,7 @@ jobs:
 
       - name: Test
         run: |
-          ulimit -c unlimited -S
+          ulimit -c unlimited -S || true
           cd build
           ./picoquic_ct -S .. -n -r
           ./picohttp_ct -S .. -n -r -x http_corrupt
