@@ -110,9 +110,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git remote add upstream https://github.com/private-octopus/picoquic.git || true
-          git fetch upstream main
+          git fetch upstream master
 
-          COMMITS=$(gh api 'repos/private-octopus/picoquic/commits?per_page=20' \
+          COMMITS=$(gh api 'repos/private-octopus/picoquic/commits?sha=master&per_page=20' \
             --jq '.[].sha')
 
           echo "Scanning up to 20 recent upstream commits..."
