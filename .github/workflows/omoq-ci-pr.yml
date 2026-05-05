@@ -12,8 +12,12 @@ name: ci pr
 on:
   pull_request:
     branches: [main]
+  # Push trigger covers post-merge runs on main only. Sync/** branches
+  # are exercised via the pull_request trigger above (opened +
+  # synchronize events handle re-pushes after the upstream-sync
+  # workflow's pre-merge step), so we don't double-fire here.
   push:
-    branches: [main, 'sync/**']
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -102,5 +102,11 @@ jobs:
           fi
 
           echo "Merging sync PR #${PR_NUM}..."
-          gh pr merge "${PR_NUM}" --merge --delete-branch --repo "${REPO}"
+          # --admin: bypass the PR-review requirement of the OMOQ_PICO_CHECKS
+          # ruleset. The bot is in bypassActors with bypassMode=ALWAYS, so
+          # the override is authorized at the policy level. This makes the
+          # auto-merge resilient even if the upstream-sync workflow's
+          # OMOQ_SYNC_TOKEN approve step fails (e.g., expired PAT), so a
+          # green CI on a sync PR still lands without manual intervention.
+          gh pr merge "${PR_NUM}" --merge --admin --delete-branch --repo "${REPO}"
           echo "Merged PR #${PR_NUM}."
