@@ -262,20 +262,9 @@ typedef enum {
     picoquic_epoch_1rtt = 3
 } picoquic_epoch_enum;
 
-/*
-* Nominal packet types. These are the packet types used internally by the
-* implementation. The wire encoding depends on the version.
-*/
-typedef enum {
-    picoquic_packet_error = 0,
-    picoquic_packet_version_negotiation,
-    picoquic_packet_initial,
-    picoquic_packet_retry,
-    picoquic_packet_handshake,
-    picoquic_packet_0rtt_protected,
-    picoquic_packet_1rtt_protected,
-    picoquic_packet_type_max
-} picoquic_packet_type_enum;
+/* picoquic_packet_type_enum is now defined in picoquic.h so that it is
+ * visible to applications implementing picoquic_unified_logging_t (whose
+ * callback typedefs in picoquic_unified_log.h reference this type). */
 
 /* Packet header structure.
  * This structure is used internally when parsing or
