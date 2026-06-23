@@ -298,24 +298,6 @@ typedef enum {
 } picoquic_lossbit_version_enum;
 
 /*
-* Nominal packet types. These are the packet types used internally by the
-* implementation. The wire encoding depends on the version. Exposed here
-* (rather than in picoquic_internal.h) because picoquic_unified_log.h
-* references this type in its public callback typedefs, so any application
-* implementing a picoquic_unified_logging_t needs it visible.
-*/
-typedef enum {
-    picoquic_packet_error = 0,
-    picoquic_packet_version_negotiation,
-    picoquic_packet_initial,
-    picoquic_packet_retry,
-    picoquic_packet_handshake,
-    picoquic_packet_0rtt_protected,
-    picoquic_packet_1rtt_protected,
-    picoquic_packet_type_max
-} picoquic_packet_type_enum;
-
-/*
 * Path statuses
 */
 
