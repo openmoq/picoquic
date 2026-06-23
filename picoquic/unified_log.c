@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #endif
 #include "picoquic_unified_log.h"
+#include "picoquic_set_unified_log_fns.h"
 
 int picoquic_register_log_functions(picoquic_quic_t* quic, picoquic_unified_logging_t * fns, void * params)
 {
