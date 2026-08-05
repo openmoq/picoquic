@@ -2487,6 +2487,20 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(stream_uni_blocked)
+        {
+            int ret = stream_uni_blocked_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(stream_uni_reactivate)
+        {
+            int ret = stream_uni_reactivate_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(bbr)
         {
             int ret = bbr_test();
@@ -2745,6 +2759,49 @@ namespace UnitTest1
 
             Assert::AreEqual(ret, 0);
         }
+
+        TEST_METHOD(scone_basic) {
+            int ret = scone_basic_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(scone_client) {
+            int ret = scone_client_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(scone_loss) {
+            int ret = scone_loss_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(scone_loss_client) {
+            int ret = scone_loss_client_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(scone_loss_server) {
+            int ret = scone_loss_server_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(scone_none) {
+            int ret = scone_none_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(scone_server) {
+            int ret = scone_server_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
 
         TEST_METHOD(stream_ack) {
             int ret = stream_ack_test();
@@ -3317,6 +3374,12 @@ namespace UnitTest1
 
         TEST_METHOD(multipath_backup) {
             int ret = multipath_backup_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_stream_af_backup) {
+            int ret = multipath_stream_af_backup_test();
 
             Assert::AreEqual(ret, 0);
         }
