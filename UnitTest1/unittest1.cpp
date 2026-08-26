@@ -3331,6 +3331,12 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(multipath_abandon_last) {
+            int ret = multipath_abandon_last_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(multipath_back0) {
             int ret = multipath_back0_test();
 
@@ -3987,6 +3993,30 @@ namespace UnitTest1
 
         TEST_METHOD(quicperf_group_remainder) {
             int ret = quicperf_group_remainder_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(quicperf_datagram_vs_group) {
+            int ret = quicperf_datagram_vs_group_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(quicperf_server_timer_wakeup) {
+            int ret = quicperf_server_timer_wakeup_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(quicperf_receive_media_overrun) {
+            int ret = quicperf_receive_media_overrun_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(quicperf_server_timer_leak) {
+            int ret = quicperf_server_timer_leak_test();
 
             Assert::AreEqual(ret, 0);
         }
