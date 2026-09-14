@@ -1239,15 +1239,14 @@ int picoquic_packet_loop_open_qmux_cnx_sockets(
             if (*nb_qmux_sockets < max_qmux_socket) {
                 struct sockaddr* dest =
                     (struct sockaddr*)&cnx->path[0]->first_tuple->peer_addr;
-                if ((sqmux_ctx[*nb_qmux_sockets] = 
+                if ((sqmux_ctx[*nb_qmux_sockets] =
                     picoquic_packet_loop_open_qmux_client_socket(dest, cnx)) == NULL) {
                     ret = -1;
                     break;
                 }
-
-                cnx = cnx->next_in_table;
                 (*nb_qmux_sockets) += 1;
             }
+            cnx = cnx->next_in_table;
         }
     }
     return ret;
@@ -2108,7 +2107,7 @@ int picoquic_packet_loop_do_tcp_accept(picoquic_quic_t* qmux,
         ret = (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) ? 0 : -1;
     }
     else if (picoquic_packet_loop_set_qmux_nonblocking(new_socket) != 0 ||
-        (cnx = picoqmux_create_qmux_cnx(qmux, current_time, 0, 0, NULL, NULL, NULL)) == NULL ||
+        (cnx = picoqmux_create_qmux_cnx(qmux, current_time, 0, 0, NULL, NULL, (struct sockaddr*)&addr_from)) == NULL ||
         (new_ctx = (picoqmux_socket_ctx_t*)malloc(sizeof(picoqmux_socket_ctx_t))) == NULL) {
         ret = -1;
     }
@@ -2404,7 +2403,7 @@ int picoquic_packet_loop_do_udp_send(
     struct sockaddr_storage* local_addr,
     int if_index,
     size_t send_msg_size,
-    size_t* send_msg_ptr,
+    size_t** send_msg_ptr,
     picoquic_connection_id_t* log_cid,
     uint64_t current_time)
 {
@@ -2443,7 +2442,7 @@ int picoquic_packet_loop_do_udp_send(
 
             if (picoquic_socket_error_implies_unreachable(sock_err)) {
                 picoquic_notify_destination_unreachable(last_cnx, current_time,
-                    (struct sockaddr*)&peer_addr, (struct sockaddr*)&local_addr, if_index,
+                    (struct sockaddr*)peer_addr, (struct sockaddr*)local_addr, if_index,
                     sock_err);
             }
             else if (sock_err == EIO) {
@@ -2478,9 +2477,12 @@ int picoquic_packet_loop_do_udp_send(
                     picoquic_log_app_message(last_cnx, "Retry of %zu bytes by chunks of %zu bytes succeeds.",
                         send_length, send_msg_size);
                 }
-                if (send_msg_ptr != NULL) {
-                    /* Make sure that we do not use GSO anymore in this run */
-                    send_msg_ptr = NULL;
+                if (send_msg_ptr != NULL && *send_msg_ptr != NULL) {
+                    /* Make sure that we do not use GSO anymore in this run: clear the
+                     * caller's segment size, and the pointer through which
+                     * picoquic_prepare_next_packet_ex would set it again. */
+                    **send_msg_ptr = 0;
+                    *send_msg_ptr = NULL;
                     picoquic_log_app_message(last_cnx, "%s", "UDP GSO was disabled");
                 }
             }
@@ -2906,7 +2908,7 @@ void* picoquic_packet_loop_v3(void* v_ctx)
                     ret = picoquic_packet_loop_do_udp_send(
                         quic, last_cnx, send_socket, param,
                         send_buffer, send_length, &peer_addr, &local_addr, if_index,
-                        send_msg_size, send_msg_ptr, &log_cid, current_time);
+                        send_msg_size, &send_msg_ptr, &log_cid, current_time);
                 }
                 else {
                     break;
@@ -3204,6 +3206,13 @@ picoquic_network_thread_ctx_t* picoquic_start_network_thread(picoquic_quic_t* qu
     return picoquic_start_custom_network_thread(quic, param, NULL, NULL, NULL, NULL, loop_callback, loop_callback_ctx, ret);
 }
 
+picoquic_network_thread_ctx_t* picoquic_start_network_thread_qmux(picoquic_quic_t* quic,
+    picoquic_quic_t* qmux, picoquic_packet_loop_param_t* param, picoquic_packet_loop_cb_fn loop_callback,
+    void* loop_callback_ctx, int* ret)
+{
+    return picoquic_start_custom_network_thread_qmux(quic, qmux, param, NULL, NULL, NULL, NULL, loop_callback, loop_callback_ctx, ret);
+}
+
 int picoquic_wake_up_network_thread(picoquic_network_thread_ctx_t* thread_ctx)
 {
     int ret = 0;
@@ -3423,7 +3432,7 @@ int picoquic_start_server_threads(
         }
         else {
             memset(param, 0, sizeof(picoquic_packet_loop_param_t));
-            if (param->local_port != 0) {
+            if (config->local_port != 0) {
                 param->local_port = (uint16_t)(config->local_port + i);
             }
             param->public_port = config->server_port;
