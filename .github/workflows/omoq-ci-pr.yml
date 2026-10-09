@@ -1,0 +1,68 @@
+name: ci pr
+
+# Minimal CI wrapper named `ci pr` so the omoq-auto-merge-sync workflow has
+# a stable workflow_run trigger name across openmoq forks (matches moxygen).
+# Mirrors picoquic upstream's CITests + ci-tests-mac-os build invocation but
+# adds:
+#   - sync/** branch coverage (auto-merge depends on this)
+#   - PRs targeting `main` (our default) instead of upstream's `master`
+#
+# Picoquic's own ci-tests.yml etc. continue to run independently.
+
+on:
+  pull_request:
+    branches: [main]
+  # Push trigger covers post-merge runs on main only. Sync/** branches
+  # are exercised via the pull_request trigger above (opened +
+  # synchronize events handle re-pushes after the upstream-sync
+  # workflow's pre-merge step), so we don't double-fire here.
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            name: linux
+          - runner: macos-15
+            name: macos
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies (linux)
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
+      - name: Install system dependencies (macos)
+        if: matrix.name == 'macos'
+        run: brew install openssl@3
+
+      - name: Configure
+        run: cmake -S . -B build -DPICOQUIC_FETCH_PTLS:BOOL=ON
+
+      - name: Build
+        run: cmake --build build -j$(getconf _NPROCESSORS_ONLN)
+
+      - name: Test
+        run: |
+          ulimit -c unlimited -S || true
+          cd build
+          ./picoquic_ct -S .. -n -r
+          ./picohttp_ct -S .. -n -r -x http_corrupt
