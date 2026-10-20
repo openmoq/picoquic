@@ -665,6 +665,13 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(dataqueue_order)
+        {
+            int ret = dataqueue_order_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(stateless_blowback) {
             int ret = test_stateless_blowback();
 
@@ -2341,6 +2348,13 @@ namespace UnitTest1
         TEST_METHOD(qlog_fns_trim_path_contexts)
         {
             int ret = qlog_fns_trim_path_contexts_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(qlog_quic_fallback)
+        {
+            int ret = qlog_quic_fallback_test();
 
             Assert::AreEqual(ret, 0);
         }
