@@ -355,6 +355,24 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(sockloop_qmux_win_recv)
+        {
+            int ret = sockloop_qmux_win_recv_test();
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(sockloop_qmux_win_accept)
+        {
+            int ret = sockloop_qmux_win_accept_test();
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(sockloop_qmux_win_reset)
+        {
+            int ret = sockloop_qmux_win_reset_test();
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(sockloop_qmux_cnx_sockets_limit)
         {
             int ret = sockloop_qmux_cnx_sockets_limit_test();
@@ -749,6 +767,13 @@ namespace UnitTest1
         TEST_METHOD(sack_list_horizon_backward)
         {
             int ret = sack_list_horizon_backward_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(ack_loss_since_sent)
+        {
+            int ret = ack_loss_since_sent_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -2245,6 +2270,83 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(retired_cnxid_late_packet)
+        {
+            int ret = retired_cnxid_late_packet_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_cap)
+        {
+            int ret = retired_cnxid_cap_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_arrival_kept)
+        {
+            int ret = retired_cnxid_arrival_kept_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_not_reused)
+        {
+            int ret = retired_cnxid_not_reused_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_path_deleted)
+        {
+            int ret = retired_cnxid_path_deleted_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_nat_rebinding)
+        {
+            int ret = retired_cnxid_nat_rebinding_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_no_renew)
+        {
+            int ret = retired_cnxid_no_renew_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_scone)
+        {
+            int ret = retired_cnxid_scone_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_bound)
+        {
+            int ret = retired_cnxid_bound_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_new_cid_no_repeat)
+        {
+            int ret = retired_cnxid_new_cid_no_repeat_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(retired_cnxid_expired_count)
+        {
+            int ret = retired_cnxid_expired_count_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(test_retire_cnxid)
         {
             int ret = retire_cnxid_test();
@@ -2617,6 +2719,18 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(qmux_tls_handshake_idle_timeout)
+        {
+            int ret = qmux_tls_handshake_idle_timeout_test();
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(qmux_tls_handshake_idle_timeout_loop)
+        {
+            int ret = qmux_tls_handshake_idle_timeout_loop_test();
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(qmux_loop_tls_close)
         {
             int ret = qmux_loop_tls_close_test();
@@ -2894,6 +3008,20 @@ namespace UnitTest1
         TEST_METHOD(reset_at_end)
         {
             int ret = reset_at_end_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(reset_after_fin_received)
+        {
+            int ret = reset_after_fin_received_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(reset_deleted)
+        {
+            int ret = reset_deleted_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -3333,6 +3461,20 @@ namespace UnitTest1
         TEST_METHOD(l4s_prague_updown)
         {
             int ret = l4s_prague_updown_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(l4s_prague_shallow)
+        {
+            int ret = l4s_prague_shallow_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(l4s_prague_long_rtt)
+        {
+            int ret = l4s_prague_long_rtt_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -4286,6 +4428,12 @@ namespace UnitTest1
 
         TEST_METHOD(multipath_cid_retire) {
             int ret = multipath_cid_retire_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_idle_rotation) {
+            int ret = multipath_idle_rotation_test();
 
             Assert::AreEqual(ret, 0);
         }
