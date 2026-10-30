@@ -53,7 +53,10 @@ jobs:
 
       - name: Install system dependencies (macos)
         if: matrix.name == 'macos'
-        run: brew install openssl@3
+        # FindOpenSSL otherwise picks Homebrew's linked openssl@4, which fails the tests.
+        run: |
+          brew install openssl@3
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix --installed openssl@3)" >> "$GITHUB_ENV"
 
       - name: Configure
         run: cmake -S . -B build -DPICOQUIC_FETCH_PTLS:BOOL=ON
