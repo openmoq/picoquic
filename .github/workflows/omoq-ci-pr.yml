@@ -39,6 +39,7 @@ jobs:
             name: macos
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
