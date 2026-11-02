@@ -1193,6 +1193,8 @@ int tls_api_init_ctx_ex2(picoquic_test_tls_api_ctx_t** pctx, uint32_t proposed_v
                 /* Do not use randomization by default during tests */
                 picoquic_set_random_initial(test_ctx->qclient, 0);
                 picoquic_set_random_initial(test_ctx->qserver, 0);
+                /* Match the client's first key share, so PQ capable servers do not send HRR */
+                ret = picoquic_set_key_exchange(test_ctx->qserver, PICOQUIC_GROUP_SECP256R1);
             }
 
             /* register the links */
@@ -13460,8 +13462,14 @@ int integrity_limit_test(void)
     }
 
     /* Perform a data sending loop for a few rounds after the ready state */
-    while (ret == 0 && nb_initial_loop < 64) {
-        if (test_ctx->cnx_server != NULL && 
+    for (int nb_rounds = 0; ret == 0 && nb_initial_loop < 64; nb_rounds++) {
+        if (nb_rounds >= 1024) {
+            /* Do not loop forever if the 1-RTT keys never get ready */
+            DBG_PRINTF("Only %d of %d rounds had 1-RTT keys", nb_initial_loop, nb_rounds);
+            ret = -1;
+            break;
+        }
+        if (test_ctx->cnx_server != NULL &&
             test_ctx->cnx_server->crypto_context[picoquic_epoch_1rtt].aead_decrypt != NULL) {
             nb_initial_loop++;
         }
@@ -14058,9 +14066,13 @@ int bad_chello_test(void)
     }
     else {
         picoquic_sort_key_exchange_algorithms(bad_hello_key_exchanges, nb_bad_hello_key_exchanges);
+        /* The canned client hello needs a server that accepts every group */
+        ret = picoquic_set_key_exchange(test_ctx->qserver, 0);
         picoquic_set_qlog(test_ctx->qserver, ".");
         /* Create an initial packet with a bad chello */
-        ret = bad_chello_fill_initial(test_ctx->qserver, buffer, PICOQUIC_ENFORCED_INITIAL_MTU, chello_malformed, sizeof(chello_malformed));
+        if (ret == 0) {
+            ret = bad_chello_fill_initial(test_ctx->qserver, buffer, PICOQUIC_ENFORCED_INITIAL_MTU, chello_malformed, sizeof(chello_malformed));
+        }
     }
 
     /* Submit the packet to the server context */
@@ -15195,6 +15207,11 @@ int tls_key_exchange_test_one(uint16_t key_exchange_id)
         /* Reset the context to use the preferred ID.
         */
         ret = picoquic_set_key_exchange(test_ctx->qclient, key_exchange_id);
+    }
+
+    if (ret == 0) {
+        /* The server must accept every group, including PQ ones */
+        ret = picoquic_set_key_exchange(test_ctx->qserver, 0);
     }
 
     if (ret == 0) {
