@@ -4288,6 +4288,18 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(multipath_drop_first_c2s) {
+            int ret = multipath_drop_first_c2s_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_drop_first_s2c) {
+            int ret = multipath_drop_first_s2c_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(multipath_fail) {
             int ret = multipath_fail_test();
 
@@ -4486,8 +4498,50 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(multipath_abandon_stash) {
+            int ret = multipath_abandon_stash_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_abandon_stash_reverse) {
+            int ret = multipath_abandon_stash_reverse_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_delete_path_stash) {
+            int ret = multipath_delete_path_stash_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_unique_path_id) {
+            int ret = multipath_unique_path_id_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(multipath_ack_delay) {
             int ret = multipath_ack_delay_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_ack_path_stalled) {
+            int ret = multipath_ack_path_stalled_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_nominal_ack_path) {
+            int ret = multipath_nominal_ack_path_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_srtt_update) {
+            int ret = multipath_srtt_update_test();
 
             Assert::AreEqual(ret, 0);
         }
@@ -5143,6 +5197,108 @@ namespace UnitTest1
 
         TEST_METHOD(picowt_baton_stop_reset) {
             int ret = picowt_baton_stop_reset_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_url) {
+            int ret = wt_interop_url_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_handshake) {
+            int ret = wt_interop_handshake_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_uni_receive) {
+            int ret = wt_interop_uni_receive_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_uni_send) {
+            int ret = wt_interop_uni_send_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_bidi_receive) {
+            int ret = wt_interop_bidi_receive_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_bidi_send) {
+            int ret = wt_interop_bidi_send_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_receive) {
+            int ret = wt_interop_datagram_receive_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_send) {
+            int ret = wt_interop_datagram_send_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_missing_file) {
+            int ret = wt_interop_missing_file_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_uni_missing_file) {
+            int ret = wt_interop_uni_missing_file_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_missing_file) {
+            int ret = wt_interop_datagram_missing_file_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_download_fail) {
+            int ret = wt_interop_download_fail_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_large) {
+            int ret = wt_interop_datagram_large_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_wildcard_post) {
+            int ret = wt_interop_wildcard_post_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_loss_get) {
+            int ret = wt_interop_datagram_loss_get_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_loss_push) {
+            int ret = wt_interop_datagram_loss_push_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(wt_interop_datagram_loss_send) {
+            int ret = wt_interop_datagram_loss_send_test();
 
             Assert::AreEqual(ret, 0);
         }

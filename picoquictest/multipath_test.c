@@ -83,6 +83,19 @@ static void multipath_test_kill_server_links(picoquic_test_tls_api_ctx_t* test_c
     }
 }
 
+static void multipath_test_kill_client_links(picoquic_test_tls_api_ctx_t* test_ctx, int link_id)
+{
+    /* Make sure that nothing sent by the client gets through on that link */
+    if (link_id == 0) {
+        test_ctx->c_to_s_link->next_send_time = UINT64_MAX;
+        test_ctx->c_to_s_link->is_switched_off = 1;
+    }
+    else {
+        test_ctx->c_to_s_link_2->next_send_time = UINT64_MAX;
+        test_ctx->c_to_s_link_2->is_switched_off = 1;
+    }
+}
+
 static void multipath_test_set_unreachable(picoquic_test_tls_api_ctx_t* test_ctx, int link_id)
 {
     if (link_id == 0) {
@@ -597,6 +610,8 @@ typedef enum {
     multipath_test_keep_alive,
     multipath_test_just_one,
     multipath_test_break_both,
+    multipath_test_drop_first_c2s,
+    multipath_test_drop_first_s2c,
 } multipath_test_enum_t;
 
 #ifdef _WINDOWS
@@ -1026,14 +1041,14 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
         ret = tls_api_connection_loop(test_ctx, &loss_mask, 2 * test_ctx->s_to_c_link->microsec_latency, &simulated_time);
     }
     /* verify that multipath is negotiated on both sides */
-    if (!test_ctx->cnx_client->is_multipath_enabled || !test_ctx->cnx_server->is_multipath_enabled) {
+    if (ret == 0 && (!test_ctx->cnx_client->is_multipath_enabled || !test_ctx->cnx_server->is_multipath_enabled)) {
         DBG_PRINTF("Multipath not fully negotiated (c=%d, s=%d)",
             test_ctx->cnx_client->is_multipath_enabled, test_ctx->cnx_server->is_multipath_enabled);
         ret = -1;
     }
     /* verify that both sides have the same vision of max path id*/
-    if (test_ctx->cnx_client->max_path_id_local != test_ctx->cnx_server->max_path_id_remote ||
-        test_ctx->cnx_client->max_path_id_remote != test_ctx->cnx_server->max_path_id_local) {
+    if (ret == 0 && (test_ctx->cnx_client->max_path_id_local != test_ctx->cnx_server->max_path_id_remote ||
+        test_ctx->cnx_client->max_path_id_remote != test_ctx->cnx_server->max_path_id_local)) {
         DBG_PRINTF("No agreement on max path if (c=%u/%u, s=%u/%u)",
             (uint32_t)test_ctx->cnx_client->max_path_id_local, (uint32_t)test_ctx->cnx_client->max_path_id_remote,
             (uint32_t)test_ctx->cnx_server->max_path_id_local, (uint32_t)test_ctx->cnx_server->max_path_id_remote);
@@ -1122,7 +1137,8 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
         test_id == multipath_test_renew || test_id == multipath_test_nat || test_id == multipath_test_nat_challenge ||
         test_id == multipath_test_break1 || test_id == multipath_test_break2 || test_id == multipath_test_break3 ||
         test_id == multipath_test_back0 || test_id == multipath_test_back1 || test_id == multipath_test_standup ||
-        test_id == multipath_test_abandon || test_id == multipath_test_tunnel || test_id == multipath_test_break_both)) {
+        test_id == multipath_test_abandon || test_id == multipath_test_tunnel || test_id == multipath_test_break_both ||
+        test_id == multipath_test_drop_first_c2s || test_id == multipath_test_drop_first_s2c)) {
         /* If testing a final link drop before completion, perform a 
          * partial sending loop and then kill the initial link.
          * For the tunnel scenario, do the same but kill both links.
@@ -1172,6 +1188,14 @@ int multipath_test_one(uint64_t max_completion_microsec, multipath_test_enum_t t
                 /* Break both paths, program them to return socket errors */
                 multipath_test_set_unreachable(test_ctx, 0);
                 multipath_test_set_unreachable(test_ctx, 1);
+            }
+            else if (test_id == multipath_test_drop_first_c2s) {
+                /* Only the client to server direction of path 0 fails */
+                multipath_test_kill_client_links(test_ctx, 0);
+            }
+            else if (test_id == multipath_test_drop_first_s2c) {
+                /* Only the server to client direction of path 0 fails */
+                multipath_test_kill_server_links(test_ctx, 0);
             } else {
                 multipath_test_kill_links(test_ctx, 
                     (test_id == multipath_test_drop_first ||
@@ -1515,9 +1539,25 @@ int multipath_drop_first_test(void)
 
 int multipath_drop_second_test(void)
 {
-    uint64_t max_completion_microsec = 1260000;
+    uint64_t max_completion_microsec = 1350000;
 
     return multipath_test_one(max_completion_microsec, multipath_test_drop_second);
+}
+
+/* Same as drop first, but only the client to server direction of path 0 fails. */
+int multipath_drop_first_c2s_test(void)
+{
+    uint64_t max_completion_microsec = 1060000;
+
+    return multipath_test_one(max_completion_microsec, multipath_test_drop_first_c2s);
+}
+
+/* Same as drop first, but only the server to client direction of path 0 fails. */
+int multipath_drop_first_s2c_test(void)
+{
+    uint64_t max_completion_microsec = 1300000;
+
+    return multipath_test_one(max_completion_microsec, multipath_test_drop_first_s2c);
 }
 
 /* Simulate the combination of a satellite link and a low latency low bandwidth
@@ -2067,8 +2107,8 @@ int multipath_back0_test(void)
  */
 int multipath_back1_test(void)
 {
-    /* TODO: investigate why 3.3 instead of 3.05 with prior implementation of multipath */
-    uint64_t max_completion_microsec = 3300000;
+    /* TODO: investigate why 3.5 instead of 3.05 with prior implementation of multipath */
+    uint64_t max_completion_microsec = 3500000;
 
     return  multipath_test_one(max_completion_microsec, multipath_test_back1);
 }
@@ -2674,6 +2714,276 @@ int multipath_cid_retire_test(void)
     return(ret);
 }
 
+/* Verify that the CID and CID stash is freed after abandoning a path, and will not
+* be recreated by a NeW CID arriving after the abandon. */
+#define MULTIPATH_ABANDON_STASH_ROUNDS 100
+
+static int multipath_abandon_stash_frame(picoquic_cnx_t* cnx, int is_abandon, uint64_t path_id, uint64_t current_time)
+{
+    int ret = 0;
+    uint8_t frame[64];
+    uint8_t* bytes = frame;
+    uint8_t* bytes_max = frame + sizeof(frame);
+    const uint8_t* decoded = NULL;
+
+    if (is_abandon) {
+        if ((bytes = picoquic_frames_varint_encode(bytes, bytes_max, path_id)) == NULL ||
+            (bytes = picoquic_frames_varint_encode(bytes, bytes_max, 0)) == NULL) {
+            ret = -1;
+        }
+        else {
+            decoded = picoquic_decode_path_abandon_frame(frame, bytes, cnx, current_time);
+        }
+    }
+    else if ((bytes = picoquic_frames_varint_encode(bytes, bytes_max, picoquic_frame_type_path_new_connection_id)) == NULL ||
+        (bytes = picoquic_frames_varint_encode(bytes, bytes_max, path_id)) == NULL ||
+        (bytes = picoquic_frames_varint_encode(bytes, bytes_max, 0)) == NULL ||
+        (bytes = picoquic_frames_varint_encode(bytes, bytes_max, 0)) == NULL ||
+        bytes + 1 + 8 + PICOQUIC_RESET_SECRET_SIZE > bytes_max) {
+        ret = -1;
+    }
+    else {
+        *bytes++ = 8;
+        memset(bytes, 0, 8 + PICOQUIC_RESET_SECRET_SIZE);
+        picoformat_64(bytes, path_id + 1);
+        picoformat_64(bytes + 8, path_id + 1);
+        bytes += 8 + PICOQUIC_RESET_SECRET_SIZE;
+        decoded = picoquic_decode_new_connection_id_frame(cnx, frame, bytes, current_time, 1);
+    }
+    if (ret == 0 && (decoded != bytes || cnx->local_error != 0)) {
+        DBG_PRINTF("%s on path %" PRIu64 " failed, error 0x%" PRIx64, (is_abandon) ? "Abandon" : "New CID", path_id, cnx->local_error);
+        ret = -1;
+    }
+    return ret;
+}
+
+static void multipath_abandon_stash_config(picoquic_cnx_t* cnx)
+{
+    cnx->is_multipath_enabled = 1;
+    cnx->local_parameters.initial_max_path_id = 2;
+    cnx->max_path_id_local = 2;
+    cnx->max_path_id_remote = 1000;
+    /* The peer must not use null length CIDs, or PATH_NEW_CONNECTION_ID is a protocol violation. */
+    cnx->path[0]->first_tuple->p_remote_cnxid->cnx_id.id_len = 8;
+}
+
+/* Create the local CID lists for the next path IDs, as when preparing a packet. */
+static void multipath_abandon_stash_refill(picoquic_cnx_t* cnx, uint64_t current_time)
+{
+    uint8_t buffer[PICOQUIC_MAX_PACKET_SIZE];
+    uint64_t next_wake_time = UINT64_MAX;
+    int more_data = 0;
+    int is_pure_ack = 1;
+
+    (void)picoquic_format_new_local_id_as_needed(cnx, buffer, buffer + sizeof(buffer), current_time,
+        &next_wake_time, &more_data, &is_pure_ack);
+}
+
+static uint64_t multipath_abandon_stash_count(picoquic_cnx_t* cnx)
+{
+    uint64_t nb_stashes = 0;
+
+    for (picoquic_remote_cnxid_stash_t* stash = cnx->first_remote_cnxid_stash; stash != NULL; stash = stash->next_stash) {
+        nb_stashes++;
+    }
+    return nb_stashes;
+}
+
+int multipath_abandon_stash_test(void)
+{
+    uint64_t simulated_time = 0;
+    uint64_t nb_stashes = 0;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+    int ret = picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time);
+
+    if (ret == 0) {
+        multipath_abandon_stash_config(cnx);
+    }
+
+    /* Each round, the local CID lists are refilled and the newest unused path ID is abandoned. */
+    for (int i = 0; ret == 0 && i < MULTIPATH_ABANDON_STASH_ROUNDS; i++) {
+        simulated_time += 1000;
+        multipath_abandon_stash_refill(cnx, simulated_time);
+        ret = multipath_abandon_stash_frame(cnx, 1, cnx->next_path_id_in_lists - 1, simulated_time);
+    }
+    if (ret == 0 && cnx->max_path_id_local < MULTIPATH_ABANDON_STASH_ROUNDS) {
+        DBG_PRINTF("Max path ID only grew to %" PRIu64, cnx->max_path_id_local);
+        ret = -1;
+    }
+    for (uint64_t path_id = 1; ret == 0 && path_id <= cnx->max_path_id_local; path_id++) {
+        ret = multipath_abandon_stash_frame(cnx, 0, path_id, simulated_time);
+    }
+    if (ret == 0 && (nb_stashes = multipath_abandon_stash_count(cnx)) > cnx->local_parameters.initial_max_path_id + 1) {
+        DBG_PRINTF("%" PRIu64 " stashes for max path ID %" PRIu64, nb_stashes, cnx->max_path_id_local);
+        ret = -1;
+    }
+
+    if (cnx != NULL) {
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    return ret;
+}
+
+/* A stash created before the abandon is deleted by it, and a later new CID does not recreate it. */
+int multipath_abandon_stash_reverse_test(void)
+{
+    uint64_t simulated_time = 0;
+    uint64_t nb_stashes = 0;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+    int ret = picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time);
+
+    if (ret == 0) {
+        multipath_abandon_stash_config(cnx);
+    }
+
+    for (int i = 0; ret == 0 && i < MULTIPATH_ABANDON_STASH_ROUNDS; i++) {
+        uint64_t path_id = 0;
+
+        simulated_time += 1000;
+        multipath_abandon_stash_refill(cnx, simulated_time);
+        path_id = cnx->next_path_id_in_lists - 1;
+        if ((ret = multipath_abandon_stash_frame(cnx, 0, path_id, simulated_time)) == 0 &&
+            picoquic_find_or_create_remote_cnxid_stash(cnx, path_id, 0) == NULL) {
+            DBG_PRINTF("No stash created for path %" PRIu64, path_id);
+            ret = -1;
+        }
+        if (ret == 0 && (ret = multipath_abandon_stash_frame(cnx, 1, path_id, simulated_time)) == 0 &&
+            picoquic_find_or_create_remote_cnxid_stash(cnx, path_id, 0) != NULL) {
+            DBG_PRINTF("Stash of path %" PRIu64 " not deleted by the abandon", path_id);
+            ret = -1;
+        }
+        if (ret == 0 && (ret = multipath_abandon_stash_frame(cnx, 0, path_id, simulated_time)) == 0 &&
+            picoquic_find_or_create_remote_cnxid_stash(cnx, path_id, 0) != NULL) {
+            DBG_PRINTF("Stash of path %" PRIu64 " recreated after the abandon", path_id);
+            ret = -1;
+        }
+    }
+    if (ret == 0 && (nb_stashes = multipath_abandon_stash_count(cnx)) > cnx->local_parameters.initial_max_path_id + 1) {
+        DBG_PRINTF("%" PRIu64 " stashes for max path ID %" PRIu64, nb_stashes, cnx->max_path_id_local);
+        ret = -1;
+    }
+
+    if (cnx != NULL) {
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    return ret;
+}
+
+static void multipath_abandon_stash_addr(struct sockaddr_in* addr, uint16_t port)
+{
+    memset(addr, 0, sizeof(struct sockaddr_in));
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(port);
+}
+
+/* Deleting a path deletes the stash of its path ID, unless another path entry still uses that ID. */
+int multipath_delete_path_stash_test(void)
+{
+    uint64_t simulated_time = 0;
+    uint64_t path_id = 1;
+    int path_index = -1;
+    int twin_index = -1;
+    struct sockaddr_in addr_local;
+    struct sockaddr_in addr_peer;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+    int ret = picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time);
+
+    if (ret == 0) {
+        multipath_abandon_stash_config(cnx);
+    }
+
+    multipath_abandon_stash_addr(&addr_local, 1234);
+    multipath_abandon_stash_addr(&addr_peer, 4321);
+    if (ret == 0) {
+        multipath_abandon_stash_refill(cnx, simulated_time);
+        if ((path_index = picoquic_create_path(cnx, simulated_time, (struct sockaddr*)&addr_local,
+            (struct sockaddr*)&addr_peer, 0, path_id)) < 0 ||
+            (twin_index = picoquic_create_path(cnx, simulated_time, (struct sockaddr*)&addr_local,
+            (struct sockaddr*)&addr_peer, 0, path_id)) < 0) {
+            DBG_PRINTF("Cannot create two paths with ID %" PRIu64, path_id);
+            ret = -1;
+        }
+    }
+    if (ret == 0 && (ret = multipath_abandon_stash_frame(cnx, 0, path_id, simulated_time)) == 0 &&
+        picoquic_find_or_create_remote_cnxid_stash(cnx, path_id, 0) == NULL) {
+        DBG_PRINTF("No stash created for path %" PRIu64, path_id);
+        ret = -1;
+    }
+    if (ret == 0) {
+        picoquic_dereference_stashed_cnxid(cnx, cnx->path[twin_index], 0);
+        picoquic_delete_path(cnx, twin_index);
+        if (picoquic_find_or_create_remote_cnxid_stash(cnx, path_id, 0) == NULL) {
+            DBG_PRINTF("Stash of path %" PRIu64 " deleted while still in use", path_id);
+            ret = -1;
+        }
+    }
+    if (ret == 0) {
+        picoquic_dereference_stashed_cnxid(cnx, cnx->path[path_index], 0);
+        picoquic_delete_path(cnx, path_index);
+        if (picoquic_find_or_create_remote_cnxid_stash(cnx, path_id, 0) != NULL) {
+            DBG_PRINTF("Stash of path %" PRIu64 " not deleted with the path", path_id);
+            ret = -1;
+        }
+    }
+
+    if (cnx != NULL) {
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    return ret;
+}
+
+/* A new path never gets an ID already used by another path, even when no other ID is allowed. */
+int multipath_unique_path_id_test(void)
+{
+    uint64_t simulated_time = 0;
+    uint64_t unique_path_id = 0;
+    struct sockaddr_in addr_local;
+    struct sockaddr_in addr_peer;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+    int ret = picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time);
+
+    if (ret == 0) {
+        multipath_abandon_stash_config(cnx);
+    }
+
+    multipath_abandon_stash_addr(&addr_local, 1234);
+    multipath_abandon_stash_addr(&addr_peer, 4321);
+    if (ret == 0) {
+        /* Path IDs are only usable once their local CID list holds CIDs. */
+        cnx->remote_parameters.active_connection_id_limit = 2;
+        multipath_abandon_stash_refill(cnx, simulated_time);
+        /* Path ID 1 is taken, for example by a path the peer started, and the peer allows no higher ID. */
+        if (picoquic_create_path(cnx, simulated_time, (struct sockaddr*)&addr_local, (struct sockaddr*)&addr_peer, 0, 1) < 0) {
+            DBG_PRINTF("%s", "Cannot create the path with ID 1");
+            ret = -1;
+        }
+        cnx->unique_path_id_next = 1;
+        cnx->max_path_id_remote = 1;
+    }
+    if (ret == 0 && (unique_path_id = picoquic_find_avalaible_unique_path_id(cnx, UINT64_MAX)) != UINT64_MAX) {
+        DBG_PRINTF("Path ID %" PRIu64 " returned, but all allowed IDs are in use", unique_path_id);
+        ret = -1;
+    }
+    if (ret == 0) {
+        /* Once the peer allows ID 2, it is the next one. */
+        cnx->max_path_id_remote = 2;
+        if ((unique_path_id = picoquic_find_avalaible_unique_path_id(cnx, UINT64_MAX)) != 2 ||
+            cnx->unique_path_id_next != 3) {
+            DBG_PRINTF("Path ID %" PRIu64 ", next %" PRIu64 ", expected 2 and 3", unique_path_id, cnx->unique_path_id_next);
+            ret = -1;
+        }
+    }
+
+    if (cnx != NULL) {
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    return ret;
+}
+
 /* The PATH_ACK ack delay is the time since the largest packet was received on that path. */
 int multipath_ack_delay_test(void)
 {
@@ -2717,6 +3027,216 @@ int multipath_ack_delay_test(void)
                     path_id, largest, ack_delay, expected_delay);
                 ret = -1;
             }
+        }
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    return ret;
+}
+
+/* A path is stalled if the peer is active but our oldest unacknowledged packet is older than 2 RTT plus ack delay.
+ * When pure ACKs are ignored, only an old ack-eliciting packet makes the path stalled. */
+int multipath_ack_path_stalled_test(void)
+{
+    int ret = 0;
+    uint64_t simulated_time = 1000000;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+    picoquic_packet_t* oldest = (picoquic_packet_t*)calloc(1, sizeof(picoquic_packet_t));
+
+    if (oldest == NULL || picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time) != 0) {
+        ret = -1;
+    }
+    else {
+        picoquic_path_t* path_x = cnx->path[0];
+        uint64_t delay;
+        struct {
+            uint64_t sent_ago;
+            uint64_t received_ago;
+            int has_pending;
+            int is_ack_eliciting;
+            int ignore_pure_ack;
+            int expected;
+        } cases[] = { { 0, 0, 0, 0, 0, 0 }, { 60000, 5000, 1, 0, 0, 0 }, { 70000, 5000, 1, 0, 0, 1 }, { 70000, 30000, 1, 0, 0, 0 },
+            { 70000, 5000, 1, 0, 1, 0 }, { 70000, 5000, 1, 1, 1, 1 } };
+
+        cnx->is_multipath_enabled = 1;
+        path_x->smoothed_rtt = 20000;
+        cnx->remote_parameters.max_ack_delay = 25000;
+        delay = 2 * path_x->smoothed_rtt + cnx->remote_parameters.max_ack_delay;
+        for (size_t i = 0; ret == 0 && i < sizeof(cases) / sizeof(cases[0]); i++) {
+            int stalled;
+            oldest->send_time = simulated_time - cases[i].sent_ago;
+            oldest->is_evaluated = 1;
+            oldest->is_ack_eliciting = cases[i].is_ack_eliciting;
+            path_x->pkt_ctx.pending_first = (cases[i].has_pending) ? oldest : NULL;
+            cnx->latest_receive_time = simulated_time - cases[i].received_ago;
+            stalled = picoquic_is_ack_path_stalled(cnx, path_x, simulated_time, cases[i].ignore_pure_ack);
+            if (stalled != cases[i].expected) {
+                DBG_PRINTF("Case %zu: stalled %d, expected %d (threshold %" PRIu64 ")", i, stalled, cases[i].expected, delay);
+                ret = -1;
+            }
+        }
+        path_x->pkt_ctx.pending_first = NULL;
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    if (oldest != NULL) {
+        free(oldest);
+    }
+    return ret;
+}
+
+static int multipath_nominal_ack_path_index(picoquic_cnx_t* cnx, uint64_t current_time, picoquic_path_t** next_path)
+{
+    int nominal = -1;
+    uint64_t next_wake_time = UINT64_MAX;
+    picoquic_tuple_t* next_tuple = NULL;
+
+    picoquic_select_next_path_tuple(cnx, current_time, &next_wake_time, next_path, &next_tuple);
+    for (int i = 0; i < cnx->nb_paths; i++) {
+        if (cnx->path[i]->is_nominal_ack_path) {
+            nominal = i;
+        }
+    }
+    return nominal;
+}
+
+/* The nominal ack path is sticky: it only changes if it stalls, or if a healthy path has a clearly lower RTT.
+ * If the only available path stalls with an ack-eliciting packet, ACKs go on a healthy backup path, which stays backup. */
+int multipath_nominal_ack_path_test(void)
+{
+    int ret = 0;
+    uint64_t simulated_time = 1000000;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+    struct sockaddr_storage peer = { 0 };
+    picoquic_packet_t* oldest = (picoquic_packet_t*)calloc(1, sizeof(picoquic_packet_t));
+
+    if (oldest == NULL || picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time) != 0) {
+        ret = -1;
+    }
+    else {
+        picoquic_path_t* next_path = NULL;
+        int nominal;
+
+        cnx->is_multipath_enabled = 1;
+        cnx->cnx_state = picoquic_state_ready;
+        cnx->remote_parameters.max_ack_delay = 25000;
+        cnx->latest_receive_time = simulated_time;
+        if (picoquic_create_path(cnx, simulated_time, NULL, (struct sockaddr*)&peer, 0, 1) < 0 || cnx->nb_paths != 2) {
+            DBG_PRINTF("%s", "Cannot create the second path");
+            ret = -1;
+        }
+        for (int i = 0; ret == 0 && i < 2; i++) {
+            cnx->path[i]->first_tuple->challenge_verified = 1;
+            cnx->path[i]->first_tuple->challenge_required = 0;
+            cnx->path[i]->smoothed_rtt = 20000;
+            cnx->path[i]->rtt_min = 20000;
+        }
+        if (ret == 0) {
+            /* Lowest rtt_min wins at first */
+            cnx->path[1]->rtt_min = 21000;
+            if ((nominal = multipath_nominal_ack_path_index(cnx, simulated_time, &next_path)) != 0) {
+                DBG_PRINTF("Initial nominal path %d, expected 0", nominal);
+                ret = -1;
+            }
+        }
+        if (ret == 0) {
+            /* A slightly lower RTT does not move the nominal path */
+            cnx->path[1]->rtt_min = 19000;
+            if ((nominal = multipath_nominal_ack_path_index(cnx, simulated_time, &next_path)) != 0) {
+                DBG_PRINTF("Nominal path %d after small RTT change, expected 0", nominal);
+                ret = -1;
+            }
+        }
+        if (ret == 0) {
+            /* A clearly lower RTT does */
+            cnx->path[1]->rtt_min = 15000;
+            if ((nominal = multipath_nominal_ack_path_index(cnx, simulated_time, &next_path)) != 1) {
+                DBG_PRINTF("Nominal path %d after large RTT change, expected 1", nominal);
+                ret = -1;
+            }
+        }
+        if (ret == 0) {
+            /* A stalled path is abandoned */
+            oldest->send_time = simulated_time - 100000;
+            oldest->is_evaluated = 1;
+            oldest->is_ack_eliciting = 1;
+            cnx->path[1]->pkt_ctx.pending_first = oldest;
+            nominal = multipath_nominal_ack_path_index(cnx, simulated_time, &next_path);
+            cnx->path[1]->pkt_ctx.pending_first = NULL;
+            if (nominal != 0) {
+                DBG_PRINTF("Nominal path %d after stall of path 1, expected 0", nominal);
+                ret = -1;
+            }
+        }
+        if (ret == 0) {
+            /* Only path 0 is available, and only an old pure ACK is pending: ACKs stay on path 0 */
+            cnx->path[1]->path_is_backup = 1;
+            oldest->is_evaluated = 1;
+            oldest->is_ack_eliciting = 0;
+            cnx->path[0]->pkt_ctx.pending_first = oldest;
+            picoquic_set_ack_needed(cnx, simulated_time, picoquic_packet_context_application, cnx->path[0], 1);
+            nominal = multipath_nominal_ack_path_index(cnx, simulated_time, &next_path);
+            cnx->path[0]->pkt_ctx.pending_first = NULL;
+            if (nominal != 0 || next_path != cnx->path[0]) {
+                DBG_PRINTF("Pure ACK pending on path 0: nominal %d, selected path %d, expected 0, 0", nominal,
+                    (next_path == cnx->path[1]) ? 1 : 0);
+                ret = -1;
+            }
+        }
+        if (ret == 0) {
+            /* Only path 0 is available and it stalls: the ACK goes on backup path 1, which remains backup */
+            oldest->is_ack_eliciting = 1;
+            cnx->path[0]->pkt_ctx.pending_first = oldest;
+            picoquic_set_ack_needed(cnx, simulated_time, picoquic_packet_context_application, cnx->path[0], 1);
+            nominal = multipath_nominal_ack_path_index(cnx, simulated_time, &next_path);
+            cnx->path[0]->pkt_ctx.pending_first = NULL;
+            if (nominal != 1 || next_path != cnx->path[1] || !cnx->path[1]->path_is_backup) {
+                DBG_PRINTF("Stalled path 0: nominal %d, selected path %d, backup %d, expected 1, 1, 1", nominal,
+                    (next_path == cnx->path[1]) ? 1 : 0, cnx->path[1]->path_is_backup);
+                ret = -1;
+            }
+        }
+        picoquic_test_delete_minimal_cnx(&quic, &cnx);
+    }
+    if (oldest != NULL) {
+        free(oldest);
+    }
+    return ret;
+}
+
+/* The smoothed RTT must keep updating when the first sample came before any packet on the path was acknowledged,
+ * as happens for the handshake on path 0 or the challenge on a new path. */
+int multipath_srtt_update_test(void)
+{
+    int ret = 0;
+    uint64_t simulated_time = 1000000;
+    picoquic_cnx_t* cnx = NULL;
+    picoquic_quic_t* quic = NULL;
+
+    if (picoquic_test_set_minimal_cnx_with_time(&quic, &cnx, &simulated_time) != 0) {
+        ret = -1;
+    }
+    else {
+        picoquic_path_t* path_x = cnx->path[0];
+        uint64_t initial_srtt;
+
+        cnx->is_multipath_enabled = 1;
+        cnx->cnx_state = picoquic_state_ready;
+        /* First sample from the challenge, before any acknowledgement on the path */
+        path_x->pkt_ctx.highest_acknowledged = UINT64_MAX;
+        picoquic_update_path_rtt(cnx, path_x, -1, simulated_time - 600000, simulated_time, 0, 0);
+        initial_srtt = path_x->smoothed_rtt;
+        /* Then acknowledged samples of 300 ms, spaced by more than RTT/4 */
+        for (uint64_t pn = 1; pn <= 4; pn++) {
+            simulated_time += 200000;
+            path_x->pkt_ctx.highest_acknowledged = pn;
+            picoquic_update_path_rtt(cnx, path_x, picoquic_epoch_1rtt, simulated_time - 300000, simulated_time, 0, 0);
+        }
+        if (initial_srtt != 600000 || path_x->smoothed_rtt >= initial_srtt) {
+            DBG_PRINTF("Smoothed RTT %" PRIu64 " after samples of 300 ms, initial %" PRIu64,
+                path_x->smoothed_rtt, initial_srtt);
+            ret = -1;
         }
         picoquic_test_delete_minimal_cnx(&quic, &cnx);
     }

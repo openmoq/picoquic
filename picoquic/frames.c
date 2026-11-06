@@ -680,6 +680,10 @@ const uint8_t* picoquic_decode_new_connection_id_frame(picoquic_cnx_t* cnx, cons
             (is_mp) ? picoquic_frame_type_path_new_connection_id : picoquic_frame_type_new_connection_id);
         bytes = NULL;
     }
+    else if (cnx->is_multipath_enabled && unique_path_id < cnx->next_path_id_in_lists &&
+        picoquic_find_or_create_local_cnxid_list(cnx, unique_path_id, 0) == NULL) {
+        /* Path ID already abandoned or skipped: ignore the frame, so no stash is created for it. */
+    }
     else {
         picoquic_remote_cnxid_stash_t* remote_cnxid_stash = picoquic_find_or_create_remote_cnxid_stash(cnx, unique_path_id, 1);
 
@@ -4634,9 +4638,9 @@ uint8_t * picoquic_format_max_streams_frame_if_needed(picoquic_cnx_t* cnx,
     uint8_t* bytes0 = bytes;
 
     if (2*cnx->max_streams_bidir_local_computed + 
-        cnx->local_parameters.initial_max_stream_id_bidir > 2*cnx->max_streams_bidir_local) {
+        cnx->local_parameters.initial_max_streams_bidi > 2*cnx->max_streams_bidir_local) {
         uint64_t new_bidir_local = cnx->max_streams_bidir_local +
-            cnx->local_parameters.initial_max_stream_id_bidir;
+            cnx->local_parameters.initial_max_streams_bidi;
         if ((bytes = picoquic_frames_uint8_encode(bytes, bytes_max, picoquic_frame_type_max_streams_bidir)) != NULL &&
             (bytes = picoquic_frames_varint_encode(bytes, bytes_max, new_bidir_local)) != NULL) {
             cnx->max_streams_bidir_local = new_bidir_local;
@@ -4649,8 +4653,8 @@ uint8_t * picoquic_format_max_streams_frame_if_needed(picoquic_cnx_t* cnx,
     }
     
     if (2*cnx->max_streams_unidir_local_computed +
-        cnx->local_parameters.initial_max_stream_id_unidir > 2*cnx->max_streams_unidir_local) {
-        uint64_t new_unidir_local = cnx->max_streams_unidir_local + cnx->local_parameters.initial_max_stream_id_unidir;
+        cnx->local_parameters.initial_max_streams_uni > 2*cnx->max_streams_unidir_local) {
+        uint64_t new_unidir_local = cnx->max_streams_unidir_local + cnx->local_parameters.initial_max_streams_uni;
 
         if ((bytes = picoquic_frames_uint8_encode(bytes, bytes_max, picoquic_frame_type_max_streams_unidir)) != NULL &&
             (bytes = picoquic_frames_varint_encode(bytes, bytes_max, new_unidir_local)) != NULL) {
@@ -5644,6 +5648,12 @@ const uint8_t* picoquic_decode_time_stamp_frame(const uint8_t* bytes, const uint
     if ((bytes = picoquic_frames_varint_decode(bytes, bytes_max, &time_stamp)) != NULL) {
         if (!cnx->is_time_stamp_enabled) {
             picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_PROTOCOL_VIOLATION,
+                picoquic_frame_type_time_stamp);
+            bytes = NULL;
+        }
+        else if (time_stamp > (UINT64_MAX >> cnx->remote_parameters.ack_delay_exponent)) {
+            /* Value up to 2^62-1, exponent up to 20: the shift would overflow. */
+            picoquic_connection_error(cnx, PICOQUIC_TRANSPORT_FRAME_FORMAT_ERROR,
                 picoquic_frame_type_time_stamp);
             bytes = NULL;
         }
