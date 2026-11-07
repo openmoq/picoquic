@@ -23,6 +23,7 @@
 #define PICOQUIC_INTERNAL_H
 
 #include "picohash.h"
+#include "picorbtree.h"
 #include "picosplay.h"
 #include "picoquic.h"
 #include "picoquic_utils.h"
@@ -613,7 +614,7 @@ typedef struct st_picoquic_quic_t {
     struct st_picoquic_cnx_t* cnx_last;
     struct st_picoquic_cnx_t* cnx_wake_ready_first;
     struct st_picoquic_cnx_t* cnx_wake_ready_last;
-    picosplay64u_tree_t cnx_wake_tree;
+    picorbtree_tree_t cnx_wake_tree;
 
     struct st_picoquic_cnx_t* cnx_in_progress;
 
@@ -757,7 +758,7 @@ typedef struct st_picoquic_stream_head_t {
     picosplay_node_t stream_node; /* splay of streams in connection context */
     struct st_picoquic_stream_head_t * next_output_stream; /* link in the list of output streams */
     struct st_picoquic_stream_head_t * previous_output_stream;
-    picoquic_cnx_t * cnx;
+    picoquic_stream_data_node_t* first_stream_data; /* Lowest-offset buffered application data, or NULL. Unused for TLS. */
     uint64_t stream_id;
     struct st_picoquic_path_t * affinity_path; /* Path for which affinity is set, or NULL if none */
     uint64_t consumed_offset; /* amount of data consumed by the application */
@@ -1234,6 +1235,15 @@ typedef struct st_picoquic_output_stream_t {
     picoquic_stream_head_t* last_output_stream;
 } picoquic_output_stream_t;
 
+/* A connection is either in the future wake tree or the due-now FIFO. */
+typedef union st_picoquic_wake_links_t {
+    picorbtree_node_t tree_node;
+    struct {
+        struct st_picoquic_cnx_t* next;
+        struct st_picoquic_cnx_t* previous;
+    } ready;
+} picoquic_wake_links_t;
+
 /*
 * Per connection context.
 */
@@ -1378,9 +1388,7 @@ typedef struct st_picoquic_cnx_t {
 
     /* Next time sending data is expected */
     uint64_t next_wake_time;
-    picosplay_node_t cnx_wake_node;
-    struct st_picoquic_cnx_t* cnx_wake_next;
-    struct st_picoquic_cnx_t* cnx_wake_previous;
+    picoquic_wake_links_t cnx_wake_links;
     /* Wakeup time requested by the application */
     uint64_t app_wake_time;
     /* TLS context, TLS Send Buffer, streams, epochs */
@@ -2129,6 +2137,7 @@ uint64_t picoquic_cc_increased_window(picoquic_cnx_t* cnx, uint64_t previous_win
 uint8_t* picoquic_format_max_streams_frame_if_needed(picoquic_cnx_t* cnx, uint8_t* bytes, uint8_t* bytes_max, int* more_data, int* is_pure_ack);
 void picoquic_stream_data_node_recycle(picoquic_stream_data_node_t* stream_data);
 picoquic_stream_data_node_t* picoquic_stream_data_node_alloc(picoquic_quic_t* quic);
+void picoquic_remove_stream_data_node(picoquic_cnx_t* cnx, picoquic_stream_head_t* stream, picoquic_stream_data_node_t* data);
 void picoquic_clear_stream(picoquic_stream_head_t* stream);
 void picoquic_delete_stream(picoquic_cnx_t * cnx, picoquic_stream_head_t * stream);
 picoquic_local_cnxid_list_t* picoquic_find_or_create_local_cnxid_list(picoquic_cnx_t* cnx, uint64_t unique_path_id, int do_create);
