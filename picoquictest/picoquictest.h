@@ -73,6 +73,7 @@ int sendacktest(void);
 int sendack_loop_test(void);
 int ackfrq_basic_test(void);
 int ackfrq_short_test(void);
+int ackfrq_min_delay_test(void);
 #if 0
 /* The TLS API connect test is only useful when debugging issues step by step */
 int tls_api_connect_test(void);
@@ -793,6 +794,7 @@ int multipath_cid_retire_test(void);
 int multipath_abandon_stash_test(void);
 int multipath_abandon_stash_reverse_test(void);
 int multipath_delete_path_stash_test(void);
+int multipath_flow_frames_ack_test(void);
 int multipath_unique_path_id_test(void);
 int multipath_ack_delay_test(void);
 int multipath_ack_path_stalled_test(void);

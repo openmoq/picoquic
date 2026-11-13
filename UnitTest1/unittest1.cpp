@@ -827,6 +827,13 @@ namespace UnitTest1
             Assert::AreEqual(ret, 0);
         }
 
+        TEST_METHOD(ackfrq_min_delay)
+        {
+            int ret = ackfrq_min_delay_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
         TEST_METHOD(test_sim_link)
         {
             int ret = sim_link_test();
@@ -4539,6 +4546,12 @@ namespace UnitTest1
 
         TEST_METHOD(multipath_delete_path_stash) {
             int ret = multipath_delete_path_stash_test();
+
+            Assert::AreEqual(ret, 0);
+        }
+
+        TEST_METHOD(multipath_flow_frames_ack) {
+            int ret = multipath_flow_frames_ack_test();
 
             Assert::AreEqual(ret, 0);
         }

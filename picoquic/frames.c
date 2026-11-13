@@ -3017,6 +3017,11 @@ void picoquic_compute_ack_gap_and_delay(picoquic_cnx_t* cnx, uint64_t rtt, uint6
                 if (*ack_delay_max > PICOQUIC_ACK_DELAY_MAX) {
                     *ack_delay_max = PICOQUIC_ACK_DELAY_MAX;
                 }
+                /* The requested ack delay must never be lower than the
+                 * min_ack_delay advertised by the peer. */
+                if (*ack_delay_max < remote_min_ack_delay) {
+                    *ack_delay_max = remote_min_ack_delay;
+                }
             }
             /* if ack gap smaller than ack time fraction of CWIN, perform correction */
             uint64_t rtt_target = (cnx->path[0]->smoothed_rtt + cnx->path[0]->rtt_min) / 2;
@@ -5985,7 +5990,7 @@ int picoquic_process_ack_of_max_path_id_frame(picoquic_cnx_t* cnx, const uint8_t
     int ret = 0;
     uint64_t max_path_id = 0;
 
-    const uint8_t * bytes_next = picoquic_frames_varint_decode(bytes, bytes + bytes_max, &max_path_id);
+    const uint8_t * bytes_next = picoquic_decode_single_varint_frame(bytes, bytes + bytes_max, &max_path_id);
 
     if (bytes_next != NULL){
         if (cnx->max_path_id_acknowledged < max_path_id) {
@@ -6074,7 +6079,7 @@ int picoquic_process_ack_of_paths_blocked_frame(picoquic_cnx_t* cnx, const uint8
     int ret = 0;
     uint64_t max_path_id = 0;
 
-    const uint8_t* bytes_next = picoquic_frames_varint_decode(bytes, bytes + bytes_max, &max_path_id);
+    const uint8_t* bytes_next = picoquic_decode_single_varint_frame(bytes, bytes + bytes_max, &max_path_id);
 
     if (bytes_next != NULL) {
         if (cnx->paths_blocked_acknowledged < max_path_id) {
@@ -6207,8 +6212,12 @@ int picoquic_process_ack_of_path_cid_blocked_frame(picoquic_cnx_t* cnx, const ui
     int ret = 0;
     uint64_t unique_path_id = 0;
     uint64_t next_sequence_number = 0;
+    /* The stored frame starts with the frame type */
+    const uint8_t* bytes_next = picoquic_frames_varint_skip(bytes, bytes + bytes_max);
 
-    const uint8_t* bytes_next = picoquic_decode_dual_varint_frame(bytes, bytes + bytes_max, &unique_path_id, &next_sequence_number);
+    if (bytes_next != NULL) {
+        bytes_next = picoquic_decode_dual_varint_frame(bytes_next, bytes + bytes_max, &unique_path_id, &next_sequence_number);
+    }
 
     if (bytes_next != NULL) {
         /* Find the path context for the path ID */
