@@ -3068,8 +3068,8 @@ void picoquic_init_path_rtt(picoquic_path_t* path_x)
     path_x->rtt_min = 0;
     path_x->rtt_max = 0;
     path_x->rtt_sample = 0;
+    path_x->rtt_init_time = 0;
     path_x->one_way_delay_sample = 0;
-    path_x->rtt_is_initialized = 0;
     path_x->rtt_packet_previous_period = 0;
     path_x->rtt_time_previous_period = 0;
     path_x->nb_rtt_estimate_in_period = 0;
@@ -3907,7 +3907,7 @@ void picoquic_check_local_cnxid_ttl(picoquic_cnx_t* cnx, picoquic_local_cnxid_li
             l_cid = l_cid->next;
         }
 
-        cnx->next_wake_time = current_time;
+        *next_wake_time = current_time;
         SET_LAST_WAKE(cnx->quic, PICOQUIC_QUICCTX);
     } else {
         if (*next_wake_time - local_cnxid_list->local_cnxid_oldest_created > cnx->quic->local_cnxid_ttl) {
