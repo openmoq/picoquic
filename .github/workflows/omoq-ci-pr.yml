@@ -2,8 +2,7 @@ name: ci pr
 
 # Minimal CI wrapper named `ci pr` so the omoq-auto-merge-sync workflow has
 # a stable workflow_run trigger name across openmoq forks (matches moxygen).
-# Mirrors picoquic upstream's CITests + ci-tests-mac-os build invocation but
-# adds:
+# Mirrors picoquic upstream's CITests build invocation but adds:
 #   - sync/** branch coverage (auto-merge depends on this)
 #   - PRs targeting `main` (our default) instead of upstream's `master`
 #
@@ -29,34 +28,18 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-22.04
-            name: linux
-          - runner: macos-latest
-            name: macos
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
+    name: linux
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
 
-      - name: Install system dependencies (linux)
-        if: matrix.name == 'linux'
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev
-
-      - name: Install system dependencies (macos)
-        if: matrix.name == 'macos'
-        # FindOpenSSL otherwise picks Homebrew's linked openssl@4, which fails the tests.
-        run: |
-          brew install openssl@3
-          echo "OPENSSL_ROOT_DIR=$(brew --prefix --installed openssl@3)" >> "$GITHUB_ENV"
 
       - name: Configure
         run: cmake -S . -B build -DPICOQUIC_FETCH_PTLS:BOOL=ON
