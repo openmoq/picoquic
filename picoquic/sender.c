@@ -1652,6 +1652,13 @@ int picoquic_prepare_packet_client_init(picoquic_cnx_t* cnx, picoquic_path_t * p
         if (cnx->retry_token_length == 0 && cnx->sni != NULL) {
             (void)picoquic_get_token(cnx->quic, cnx->sni, (uint16_t)strlen(cnx->sni),
                 NULL, 0, &cnx->retry_token, &cnx->retry_token_length, 1);
+            if (cnx->retry_token_length > PICOQUIC_NEW_TOKEN_MAX_LENGTH) {
+                /* A token loaded from a file may exceed the limit: send the Initial without it. */
+                picoquic_log_app_message(cnx, "Stored token ignored: too long (%u)", (unsigned int)cnx->retry_token_length);
+                free(cnx->retry_token);
+                cnx->retry_token = NULL;
+                cnx->retry_token_length = 0;
+            }
         }
         break;
     case picoquic_state_client_init_sent:
@@ -2292,6 +2299,7 @@ uint8_t * picoquic_format_new_local_id_as_needed(picoquic_cnx_t* cnx, uint8_t* b
             else {
                 bytes = bytes_next;
                 cnx->max_path_id_local = new_max_path_id;
+                *is_pure_ack = 0;
             }
         }
         /* If the number of local lists is lower than the max number of paths,
@@ -3687,7 +3695,10 @@ int picoquic_prepare_packet_ex(picoquic_cnx_t* cnx,
                 picoquic_packet_t* packet = NULL;
 
                 if (coalesced_packet_size > 0) {
-                    packet_max = path_x->send_mtu;
+                    /* Keep the caller's remaining buffer limit while enforcing the path MTU. */
+                    if (packet_max > path_x->send_mtu) {
+                        packet_max = path_x->send_mtu;
+                    }
 
                     if (packet_max < coalesced_packet_size + PICOQUIC_MIN_SEGMENT_SIZE) {
                         break;
